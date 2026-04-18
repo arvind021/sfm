@@ -675,22 +675,38 @@ async def add_ep_title(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 async def add_ep_file(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     msg = update.message
     file_id = None
-    if msg.audio: file_id = msg.audio.file_id
-    elif msg.voice: file_id = msg.voice.file_id
+    if msg.audio:      file_id = msg.audio.file_id
+    elif msg.voice:    file_id = msg.voice.file_id
     elif msg.document: file_id = msg.document.file_id
     if not file_id:
-        await msg.reply_text("❌ Audio file bhejo!"); return ADD_EP_FILE
-    story_key = ctx.user_data["new_ep_story"]; ep_num = ctx.user_data["new_ep_num"]
-    ep_title  = ctx.user_data["new_ep_title"]
-    data  = load_data(); story = data["stories"].get(story_key)
+        await msg.reply_text("❌ Audio / Voice / Document file bhejo!"); return ADD_EP_FILE
+
+    # Safety: agar conversation state reset ho gayi ho
+    story_key = ctx.user_data.get("new_ep_story")
+    ep_num    = ctx.user_data.get("new_ep_num")
+    ep_title  = ctx.user_data.get("new_ep_title", f"Episode {ep_num}")
+    if not story_key or not ep_num:
+        await msg.reply_text("❌ Session reset ho gayi! Dobara /admin se shuru karo.")
+        return ConversationHandler.END
+
+    data  = load_data()
+    story = data["stories"].get(story_key)
     if not story:
-        await msg.reply_text("❌ Story nahi mili!"); return ADMIN_MENU
+        await msg.reply_text(f"❌ Story nahi mili! /admin"); return ADMIN_MENU
+
     story["episodes"][ep_num] = {"title": ep_title, "file_id": file_id, "premium": False}
     save_data(data)
     await msg.reply_text(
-        f"✅ *Episode {ep_num}* add ho gaya!\nStory: {story['name']}\nTitle: {ep_title}\n\n"
-        f"Premium banane ke liye: `/setpremium {story_key} {ep_num}`\n\n/admin",
-        parse_mode="Markdown"); return ADMIN_MENU
+        f"✅ *Episode {ep_num}* successfully add ho gaya!\n"
+        f"📖 Story: {story['name']}\n"
+        f"📝 Title: {ep_title}\n\n"
+        f"Aur episode add karne ke liye /admin dabao.",
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("➕ Aur Episode Add Karo", callback_data="adm_add_ep")],
+            [InlineKeyboardButton("🔙 Admin Panel",          callback_data="adm_back")],
+        ]))
+    return ADMIN_MENU
 
 async def del_ep_number(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     try: num = str(int(update.message.text.strip()))
