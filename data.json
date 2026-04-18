@@ -1,0 +1,24 @@
+{
+  "stories": {
+    "super_yodha_mahagatha": {
+      "name": "Super Yodha Mahagatha",
+      "episodes": {}
+    }
+  },
+  "plans": {
+    "monthly": {
+      "name": "Monthly",
+      "price": 99,
+      "days": 30,
+      "desc": "Saare episodes 30 din tak"
+    },
+    "yearly": {
+      "name": "Yearly",
+      "price": 799,
+      "days": 365,
+      "desc": "Saare episodes 1 saal tak — Best Value!"
+    }
+  },
+  "subscriptions": {},
+  "pending_payments": {}
+}
