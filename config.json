@@ -1,9 +1,9 @@
 {
-  "bot_token": "YOUR_BOT_TOKEN_HERE",
-  "force_channel": "@your_channel_username",
-  "admin_ids": [123456789],
-  "upi_id": "yourname@paytm",
-  "upi_name": "Pocket FM Bot",
-  "support_link": "https://t.me/your_support_username",
+  "bot_token": "8656616546:AAGeo4elsHy4VoUKxCZB6tj3EzUigXi4dsk",
+  "force_channel": "@joinkarosa",
+  "admin_ids": [ 8263530800,5086038833],
+  "upi_id": "solankiraghu7572-1@okhdfcbank",
+  "upi_name": "Solanki Raghuveer",
+  "support_link": "https://t.me/Yughumai",
   "support_text": "Koi bhi problem ho to hamare support team se contact karo.\n\n🕐 Response time: 24 hours"
 }
