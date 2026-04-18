@@ -8,6 +8,7 @@ Features:
 - Custom Subscription Plans (Admin manages)
 - Premium Episodes (locked for non-subscribers)
 - Full Admin Panel
+- protect_content=True on all user-facing messages
 """
 
 import os, json, logging, datetime
@@ -109,7 +110,9 @@ async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             f"👋 *Namaste {user.first_name}!*\n\n"
             "🔒 Bot use karne ke liye pehle hamara channel join karo:\n\n"
             f"➡️ {channel}",
-            parse_mode="Markdown", reply_markup=kb)
+            parse_mode="Markdown",
+            reply_markup=kb,
+            protect_content=True)   # 🔒
         return
     await send_welcome(update, ctx)
 
@@ -119,7 +122,6 @@ async def send_welcome(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     user   = update.effective_user if update.message else update.callback_query.from_user
 
     # ── SUBSCRIPTION WALL ────────────────────
-    # Admins bypass the wall
     if not admin_check(user.id, config) and not is_subscribed(user.id, data):
         text = (
             f"🔒 *Pocket FM Extra Episodes*\n\n"
@@ -137,9 +139,11 @@ async def send_welcome(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
              InlineKeyboardButton("📢 Channel",        callback_data="channel")],
         ])
         if update.message:
-            await update.message.reply_text(text, parse_mode="Markdown", reply_markup=kb)
+            await update.message.reply_text(
+                text, parse_mode="Markdown", reply_markup=kb, protect_content=True)  # 🔒
         else:
-            await update.callback_query.edit_message_text(text, parse_mode="Markdown", reply_markup=kb)
+            await update.callback_query.edit_message_text(
+                text, parse_mode="Markdown", reply_markup=kb)
         return
 
     # ── SUBSCRIBED / ADMIN ───────────────────
@@ -151,9 +155,11 @@ async def send_welcome(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         "Neeche buttons se choose karo 👇"
     )
     if update.message:
-        await update.message.reply_text(text, parse_mode="Markdown", reply_markup=main_keyboard())
+        await update.message.reply_text(
+            text, parse_mode="Markdown", reply_markup=main_keyboard(), protect_content=True)  # 🔒
     else:
-        await update.callback_query.edit_message_text(text, parse_mode="Markdown", reply_markup=main_keyboard())
+        await update.callback_query.edit_message_text(
+            text, parse_mode="Markdown", reply_markup=main_keyboard())
 
 # ─────────────────────────────────────────────
 #  MAIN BUTTON HANDLER
@@ -163,7 +169,7 @@ async def button_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     config = load_config()
     data   = load_data()
     user   = q.from_user
-    # Handle check_join BEFORE the global q.answer() to avoid answering twice
+
     if q.data == "check_join":
         if await is_member(ctx.bot, user.id, config["force_channel"]):
             await q.answer()
@@ -228,8 +234,8 @@ async def button_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     # ── single episode ────────────────────────
     if q.data.startswith("ep_"):
-        remainder = q.data[3:]                        # strip "ep_" prefix
-        story_key, ep_num = remainder.rsplit("_", 1)  # split from right so story_key with underscores is safe
+        remainder = q.data[3:]
+        story_key, ep_num = remainder.rsplit("_", 1)
         story     = data["stories"].get(story_key)
         episode   = story["episodes"].get(ep_num) if story else None
         if not episode:
@@ -237,9 +243,12 @@ async def button_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
         file_id = episode.get("file_id")
         if file_id:
-            await ctx.bot.send_audio(chat_id=user.id, audio=file_id,
+            await ctx.bot.send_audio(
+                chat_id=user.id,
+                audio=file_id,
                 caption=f"🎧 *{story['name']}*\n📌 Episode {ep_num}: _{episode['title']}_",
-                parse_mode="Markdown")
+                parse_mode="Markdown",
+                protect_content=True)   # 🔒
             await q.answer("✅ Episode bheja ja raha hai!")
         else:
             await q.answer("⚠️ Audio file abhi available nahi.", show_alert=True)
@@ -344,11 +353,16 @@ async def pay_screenshot_received(update: Update, ctx: ContextTypes.DEFAULT_TYPE
     user     = msg.from_user
 
     if not msg.photo and not msg.document:
-        await msg.reply_text("❌ Screenshot (image) bhejo!"); return PAY_SCREENSHOT
+        await msg.reply_text(
+            "❌ Screenshot (image) bhejo!",
+            protect_content=True)   # 🔒
+        return PAY_SCREENSHOT
 
     plan = data["plans"].get(plan_key)
     if not plan:
-        await msg.reply_text("❌ Plan nahi mila. /start se dobara try karo.")
+        await msg.reply_text(
+            "❌ Plan nahi mila. /start se dobara try karo.",
+            protect_content=True)   # 🔒
         return ConversationHandler.END
 
     file_id  = msg.photo[-1].file_id if msg.photo else msg.document.file_id
@@ -366,7 +380,8 @@ async def pay_screenshot_received(update: Update, ctx: ContextTypes.DEFAULT_TYPE
         f"📦 Plan: {plan['name']}\n💰 Amount: ₹{plan['price']}\n\n"
         "Admin jaldi verify karenge.\n⏱️ 5–30 min mein subscription activate ho jayegi! 🎉",
         parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Home", callback_data="back_home")]]))
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Home", callback_data="back_home")]]),
+        protect_content=True)   # 🔒
 
     # Notify admins
     for admin_id in config.get("admin_ids", []):
@@ -385,6 +400,7 @@ async def pay_screenshot_received(update: Update, ctx: ContextTypes.DEFAULT_TYPE
                     [InlineKeyboardButton("✅ Approve", callback_data=f"adm_approve_{user.id}_{plan_key}")],
                     [InlineKeyboardButton("❌ Reject",  callback_data=f"adm_reject_{user.id}_{plan_key}")]
                 ]))
+            # Admin screenshots are NOT protect_content so admin can forward/review freely
         except Exception: pass
 
     return ConversationHandler.END
@@ -420,12 +436,15 @@ async def admin_approve_reject(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             caption=(q.message.caption or "") + f"\n\n✅ APPROVED by @{q.from_user.username}",
             parse_mode="Markdown")
         try:
-            await ctx.bot.send_message(chat_id=user_id,
+            await ctx.bot.send_message(
+                chat_id=user_id,
                 text=(f"🎉 *Subscription Activated!*\n\n"
                       f"📦 Plan: *{plan['name']}*\n"
                       f"📅 Valid till: *{expiry.strftime('%d %b %Y')}*\n\n"
                       "Ab saare premium episodes enjoy karo! 🎧"),
-                parse_mode="Markdown", reply_markup=main_keyboard())
+                parse_mode="Markdown",
+                reply_markup=main_keyboard(),
+                protect_content=True)   # 🔒
         except Exception: pass
 
     elif q.data.startswith("adm_reject_"):
@@ -438,14 +457,16 @@ async def admin_approve_reject(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             caption=(q.message.caption or "") + f"\n\n❌ REJECTED by @{q.from_user.username}",
             parse_mode="Markdown")
         try:
-            await ctx.bot.send_message(chat_id=user_id,
+            await ctx.bot.send_message(
+                chat_id=user_id,
                 text=("❌ *Payment Rejected*\n\nPayment verify nahi ho saka.\n"
                       "Sahi screenshot bhejo ya support se contact karo."),
                 parse_mode="Markdown",
                 reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton("💬 Support", callback_data="support")],
                     [InlineKeyboardButton("🔄 Try Again", callback_data="subscription")]
-                ]))
+                ]),
+                protect_content=True)   # 🔒
         except Exception: pass
 
 # ─────────────────────────────────────────────
@@ -472,11 +493,14 @@ async def approve_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         f"✅ User `{user_id}` ko *{plan['name']}* diya!\n📅 Expiry: {expiry.strftime('%d %b %Y')}",
         parse_mode="Markdown")
     try:
-        await ctx.bot.send_message(chat_id=user_id,
+        await ctx.bot.send_message(
+            chat_id=user_id,
             text=(f"🎉 *Subscription Activated!*\n\n"
                   f"📦 Plan: *{plan['name']}*\n📅 Valid till: *{expiry.strftime('%d %b %Y')}*\n\n"
                   "Ab saare premium episodes enjoy karo! 🎧"),
-            parse_mode="Markdown", reply_markup=main_keyboard())
+            parse_mode="Markdown",
+            reply_markup=main_keyboard(),
+            protect_content=True)   # 🔒
     except Exception: pass
 
 # ─────────────────────────────────────────────
@@ -682,7 +706,6 @@ async def add_ep_file(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         if not file_id:
             await msg.reply_text("❌ Audio / Voice / Document file bhejo!"); return ADD_EP_FILE
 
-        # Safety: agar conversation state reset ho gayi ho
         story_key = ctx.user_data.get("new_ep_story")
         ep_num    = ctx.user_data.get("new_ep_num")
         ep_title  = ctx.user_data.get("new_ep_title", f"Episode {ep_num}")
