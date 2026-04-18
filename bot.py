@@ -674,39 +674,44 @@ async def add_ep_title(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 async def add_ep_file(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     msg = update.message
-    file_id = None
-    if msg.audio:      file_id = msg.audio.file_id
-    elif msg.voice:    file_id = msg.voice.file_id
-    elif msg.document: file_id = msg.document.file_id
-    if not file_id:
-        await msg.reply_text("❌ Audio / Voice / Document file bhejo!"); return ADD_EP_FILE
+    try:
+        file_id = None
+        if msg.audio:      file_id = msg.audio.file_id
+        elif msg.voice:    file_id = msg.voice.file_id
+        elif msg.document: file_id = msg.document.file_id
+        if not file_id:
+            await msg.reply_text("❌ Audio / Voice / Document file bhejo!"); return ADD_EP_FILE
 
-    # Safety: agar conversation state reset ho gayi ho
-    story_key = ctx.user_data.get("new_ep_story")
-    ep_num    = ctx.user_data.get("new_ep_num")
-    ep_title  = ctx.user_data.get("new_ep_title", f"Episode {ep_num}")
-    if not story_key or not ep_num:
-        await msg.reply_text("❌ Session reset ho gayi! Dobara /admin se shuru karo.")
-        return ConversationHandler.END
+        # Safety: agar conversation state reset ho gayi ho
+        story_key = ctx.user_data.get("new_ep_story")
+        ep_num    = ctx.user_data.get("new_ep_num")
+        ep_title  = ctx.user_data.get("new_ep_title", f"Episode {ep_num}")
+        if not story_key or not ep_num:
+            await msg.reply_text("❌ Session reset ho gayi! Dobara /admin se shuru karo.")
+            return ConversationHandler.END
 
-    data  = load_data()
-    story = data["stories"].get(story_key)
-    if not story:
-        await msg.reply_text(f"❌ Story nahi mili! /admin"); return ADMIN_MENU
+        data  = load_data()
+        story = data["stories"].get(story_key)
+        if not story:
+            await msg.reply_text(f"❌ Story '{story_key}' nahi mili! /admin"); return ADMIN_MENU
 
-    story["episodes"][ep_num] = {"title": ep_title, "file_id": file_id, "premium": False}
-    save_data(data)
-    await msg.reply_text(
-        f"✅ *Episode {ep_num}* successfully add ho gaya!\n"
-        f"📖 Story: {story['name']}\n"
-        f"📝 Title: {ep_title}\n\n"
-        f"Aur episode add karne ke liye /admin dabao.",
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("➕ Aur Episode Add Karo", callback_data="adm_add_ep")],
-            [InlineKeyboardButton("🔙 Admin Panel",          callback_data="adm_back")],
-        ]))
-    return ADMIN_MENU
+        story["episodes"][ep_num] = {"title": ep_title, "file_id": file_id, "premium": False}
+        save_data(data)
+        await msg.reply_text(
+            f"✅ *Episode {ep_num}* successfully add ho gaya!\n"
+            f"📖 Story: {story['name']}\n"
+            f"📝 Title: {ep_title}\n\n"
+            f"Aur episode add karne ke liye button dabao 👇",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("➕ Aur Episode Add Karo", callback_data="adm_add_ep")],
+                [InlineKeyboardButton("🔙 Admin Panel",          callback_data="adm_back")],
+            ]))
+        return ADMIN_MENU
+    except Exception as e:
+        logger.error(f"add_ep_file error: {e}", exc_info=True)
+        await msg.reply_text(f"❌ Error aaya: {e}\n\nDobara try karo /admin")
+        return ADMIN_MENU
 
 async def del_ep_number(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     try: num = str(int(update.message.text.strip()))
@@ -795,7 +800,10 @@ def main():
             ADD_EP_STORY:    [CallbackQueryHandler(admin_button)],
             ADD_EP_NUMBER:   [MessageHandler(filters.TEXT & ~filters.COMMAND, add_ep_number)],
             ADD_EP_TITLE:    [MessageHandler(filters.TEXT & ~filters.COMMAND, add_ep_title)],
-            ADD_EP_FILE:     [MessageHandler(filters.AUDIO | filters.VOICE | filters.Document.ALL, add_ep_file)],
+            ADD_EP_FILE:     [
+                MessageHandler(filters.AUDIO | filters.VOICE | filters.Document.ALL, add_ep_file),
+                MessageHandler(filters.ALL, lambda u, c: u.message.reply_text("❌ Sirf audio / voice file bhejo! Ya /cancel karo.")),
+            ],
             DEL_EP_STORY:    [CallbackQueryHandler(admin_button)],
             DEL_EP_NUMBER:   [MessageHandler(filters.TEXT & ~filters.COMMAND, del_ep_number)],
             EDIT_CONFIG_VAL: [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_config_val)],
